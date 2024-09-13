@@ -1,11 +1,23 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import logging
 import yt_dlp
+import os
 
 app = Flask(__name__)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+
+# Create downloads directory if not exists
+os.makedirs('downloads', exist_ok=True)
+
+@app.route('/')
+def index():
+    return "Welcome to the Reddit Video Downloader Service!"
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory('static', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/download', methods=['POST'])
 def download_video():
