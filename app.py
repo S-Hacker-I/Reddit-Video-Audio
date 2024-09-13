@@ -34,6 +34,15 @@ def download_video():
             except yt_dlp.utils.DownloadError as de:
                 logging.error(f"DownloadError: {de}")
                 return jsonify({'error': f'Failed to download video: {de}'}), 500
+            except yt_dlp.utils.ExtractorError as ee:
+                logging.error(f"ExtractorError: {ee}")
+                return jsonify({'error': f'Failed to extract video info: {ee}'}), 500
+            except yt_dlp.utils.PostProcessingError as ppe:
+                logging.error(f"PostProcessingError: {ppe}")
+                return jsonify({'error': f'Failed during post-processing: {ppe}'}), 500
+            except Exception as e:
+                logging.error(f"Unexpected error: {e}")
+                return jsonify({'error': f'Internal server error: {e}'}), 500
         
         return jsonify({'status': 'success', 'file': 'video.mp4'}), 200
 
