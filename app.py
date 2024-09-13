@@ -1,46 +1,42 @@
 from flask import Flask, request, jsonify, send_from_directory
-import logging
 import yt_dlp
 import os
+import logging
 
 app = Flask(__name__)
+CORS(app)  # Ensure this is set up to handle CORS
 
-# Configure logging
+# Directory to save downloaded videos
+DOWNLOAD_DIR = 'downloads'
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
 logging.basicConfig(level=logging.DEBUG)
-
-# Create downloads directory if not exists
-os.makedirs('downloads', exist_ok=True)
-
-@app.route('/')
-def index():
-    return "Welcome to the Reddit Video Downloader Service!"
-
-@app.route('/favicon.ico')
-def favicon():
-    return send_from_directory('static', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/download', methods=['POST'])
 def download_video():
     try:
         data = request.json
         url = data.get('url')
-        
+
         if not url:
-            logging.error("URL is missing in request.")
-            return jsonify({'error': 'URL is required'}), 400
-        
-        # Use yt-dlp to process the URL
+            raise ValueError("URL is required")
+
+        # Define file path
+        file_path = os.path.join(DOWNLOAD_DIR, 'video.mp4')
+
+        # Download video
         ydl_opts = {
             'format': 'best',
-            'outtmpl': 'downloads/%(title)s.%(ext)s',
+            'outtmpl': file_path,
+            'quiet': True
         }
-        
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(url, download=True)
-        
-        logging.info("Download successful.")
-        return jsonify({'status': 'success', 'result': result}), 200
-    
+
+        # Return the file path for download
+        return jsonify({'status': 'success', 'file': file_path}), 200
+
     except ValueError as ve:
         logging.error(f"ValueError: {ve}")
         return jsonify({'error': str(ve)}), 400
@@ -51,5 +47,9 @@ def download_video():
         logging.error(f"Unexpected error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/downloads/<filename>', methods=['GET'])
+def download_file(filename):
+    return send_from_directory(DOWNLOAD_DIR, filename, as_attachment=True)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=8080)
