@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 import yt_dlp
 import os
 import logging
 
 app = Flask(__name__)
-CORS(app)  # Ensure this is set up to handle CORS
+CORS(app)  # Enable CORS
 
 # Directory to save downloaded videos
 DOWNLOAD_DIR = 'downloads'
@@ -35,7 +36,7 @@ def download_video():
             result = ydl.extract_info(url, download=True)
 
         # Return the file path for download
-        return jsonify({'status': 'success', 'file': file_path}), 200
+        return jsonify({'status': 'success', 'file': 'video.mp4'}), 200
 
     except ValueError as ve:
         logging.error(f"ValueError: {ve}")
