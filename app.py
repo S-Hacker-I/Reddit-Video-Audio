@@ -26,7 +26,8 @@ def download_video():
         url = data.get('url')
         
         if not url:
-            raise ValueError("URL is required")
+            logging.error("URL is missing in request.")
+            return jsonify({'error': 'URL is required'}), 400
         
         # Use yt-dlp to process the URL
         ydl_opts = {
@@ -37,6 +38,7 @@ def download_video():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(url, download=True)
         
+        logging.info("Download successful.")
         return jsonify({'status': 'success', 'result': result}), 200
     
     except ValueError as ve:
