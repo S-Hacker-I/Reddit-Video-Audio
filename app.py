@@ -1,31 +1,27 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import yt_dlp
 import os
 import logging
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS
+CORS(app)  # Allow all origins, adjust as needed
 
-# Directory to save downloaded videos
-DOWNLOAD_DIR = 'downloads'
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 
-logging.basicConfig(level=logging.DEBUG)
+DOWNLOAD_DIR = '/path/to/download/directory'
 
 @app.route('/download', methods=['POST'])
 def download_video():
     try:
         data = request.json
-        url = data.get('url')
-
-        if not url:
-            raise ValueError("URL is required")
-
-        # Define file path
+        if not data or 'url' not in data:
+            return jsonify({'error': 'URL is required'}), 400
+        
+        url = data['url']
         file_path = os.path.join(DOWNLOAD_DIR, 'video.mp4')
 
-        # Download video
         ydl_opts = {
             'format': 'best',
             'outtmpl': file_path,
@@ -34,13 +30,9 @@ def download_video():
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(url, download=True)
-
-        # Return the file path for download
+        
         return jsonify({'status': 'success', 'file': 'video.mp4'}), 200
 
-    except ValueError as ve:
-        logging.error(f"ValueError: {ve}")
-        return jsonify({'error': str(ve)}), 400
     except yt_dlp.utils.DownloadError as de:
         logging.error(f"DownloadError: {de}")
         return jsonify({'error': 'Failed to download video'}), 500
@@ -48,9 +40,5 @@ def download_video():
         logging.error(f"Unexpected error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/downloads/<filename>', methods=['GET'])
-def download_file(filename):
-    return send_from_directory(DOWNLOAD_DIR, filename, as_attachment=True)
-
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    app.run(debug=True, host='0.0.0.0', port=10000)  # Adjust port as needed
