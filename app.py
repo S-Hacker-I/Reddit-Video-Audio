@@ -10,7 +10,7 @@ CORS(app)  # Allow all origins, adjust as needed
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-DOWNLOAD_DIR = '/path/to/download/directory'
+DOWNLOAD_DIR = 'downloads'
 
 @app.route('/download', methods=['POST'])
 def download_video():
@@ -18,7 +18,7 @@ def download_video():
         data = request.json
         if not data or 'url' not in data:
             return jsonify({'error': 'URL is required'}), 400
-        
+
         url = data['url']
         file_path = os.path.join(DOWNLOAD_DIR, 'video.mp4')
 
@@ -32,23 +32,24 @@ def download_video():
             try:
                 result = ydl.extract_info(url, download=True)
             except yt_dlp.utils.DownloadError as de:
-                logging.error(f"DownloadError: {de}")
+                logging.error(f"DownloadError: {de}", exc_info=True)
                 return jsonify({'error': f'Failed to download video: {de}'}), 500
             except yt_dlp.utils.ExtractorError as ee:
-                logging.error(f"ExtractorError: {ee}")
+                logging.error(f"ExtractorError: {ee}", exc_info=True)
                 return jsonify({'error': f'Failed to extract video info: {ee}'}), 500
             except yt_dlp.utils.PostProcessingError as ppe:
-                logging.error(f"PostProcessingError: {ppe}")
+                logging.error(f"PostProcessingError: {ppe}", exc_info=True)
                 return jsonify({'error': f'Failed during post-processing: {ppe}'}), 500
             except Exception as e:
-                logging.error(f"Unexpected error: {e}")
+                logging.error(f"Unexpected error: {e}", exc_info=True)
                 return jsonify({'error': f'Internal server error: {e}'}), 500
-        
+
         return jsonify({'status': 'success', 'file': 'video.mp4'}), 200
 
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
+        logging.error(f"Unexpected error: {e}", exc_info=True)
         return jsonify({'error': f'Internal server error: {e}'}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=10000)  # Adjust port as needed
