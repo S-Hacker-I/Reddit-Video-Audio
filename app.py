@@ -4,6 +4,7 @@ import yt_dlp
 import os
 import logging
 from uuid import uuid4
+import json
 
 app = Flask(__name__)
 CORS(app)  # Allow all origins, adjust as needed
@@ -46,6 +47,9 @@ def download_video():
             except yt_dlp.utils.PostProcessingError as ppe:
                 logging.error(f"PostProcessingError: {ppe}", exc_info=True)
                 return jsonify({'error': f'Failed during post-processing: {ppe}'}), 500
+            except json.JSONDecodeError as jde:
+                logging.error(f"JSONDecodeError: {jde}", exc_info=True)
+                return jsonify({'error': 'Failed to parse JSON from the video source.'}), 500
             except Exception as e:
                 logging.error(f"Unexpected error: {e}", exc_info=True)
                 return jsonify({'error': f'Internal server error: {e}'}), 500
