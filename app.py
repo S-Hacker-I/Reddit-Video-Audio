@@ -3,6 +3,7 @@ from flask_cors import CORS
 import yt_dlp
 import os
 import logging
+from uuid import uuid4
 
 app = Flask(__name__)
 CORS(app)  # Allow all origins, adjust as needed
@@ -12,6 +13,10 @@ logging.basicConfig(level=logging.INFO)
 
 DOWNLOAD_DIR = 'downloads'
 
+# Ensure the download directory exists
+if not os.path.exists(DOWNLOAD_DIR):
+    os.makedirs(DOWNLOAD_DIR)
+
 @app.route('/download', methods=['POST'])
 def download_video():
     try:
@@ -20,7 +25,8 @@ def download_video():
             return jsonify({'error': 'URL is required'}), 400
 
         url = data['url']
-        file_path = os.path.join(DOWNLOAD_DIR, 'video.mp4')
+        unique_filename = f"{uuid4().hex}.mp4"
+        file_path = os.path.join(DOWNLOAD_DIR, unique_filename)
 
         ydl_opts = {
             'format': 'best',
@@ -44,12 +50,11 @@ def download_video():
                 logging.error(f"Unexpected error: {e}", exc_info=True)
                 return jsonify({'error': f'Internal server error: {e}'}), 500
 
-        return jsonify({'status': 'success', 'file': 'video.mp4'}), 200
+        return jsonify({'status': 'success', 'file': unique_filename}), 200
 
     except Exception as e:
         logging.error(f"Unexpected error: {e}", exc_info=True)
         return jsonify({'error': f'Internal server error: {e}'}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=10000)  # Adjust port as needed
