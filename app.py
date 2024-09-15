@@ -5,7 +5,7 @@ import os
 
 app = Flask(__name__)
 
-# Enable CORS
+# Enable CORS for all origins
 CORS(app)
 
 # Directory to temporarily store video files
@@ -21,7 +21,7 @@ def download_video():
 
     # Define download options
     ydl_opts = {
-        'format': 'best',
+        'format': 'bestaudio/best',  # Download best audio and video
         'outtmpl': os.path.join(VIDEO_DIR, 'video.mp4'),
         'noplaylist': True,
         'quiet': True
