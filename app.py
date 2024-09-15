@@ -1,49 +1,48 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, jsonify, send_file
 import yt_dlp
 import os
-from flask_cors import CORS
+from io import BytesIO
 
 app = Flask(__name__)
-CORS(app)
 
-@app.route('/')
-def home():
-    return jsonify({"message": "Reddit Video Downloader is running!"}), 200
-
+# Define the download route
 @app.route('/download', methods=['POST'])
 def download_video():
-    data = request.json
-    url = data.get('url')
-
-    if not url:
-        return jsonify({"error": "URL is required"}), 400
-
-    # Force the URL to use old.reddit.com for compatibility
-    if 'reddit.com' in url:
-        url = url.replace('www.reddit.com', 'old.reddit.com')
-
-    ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',
-        'outtmpl': 'video.%(ext)s',
-        'noplaylist': True,
-        'extractor_retries': 3,
-        'merge_output_format': 'mp4',  # Force output as mp4 for easier playback
-    }
-
     try:
-        # Use yt-dlp to download the video
+        data = request.get_json()
+        video_url = data.get('url')
+        
+        if not video_url:
+            return jsonify({'error': 'No URL provided'}), 400
+
+        # Options for yt-dlp to download TikTok video
+        ydl_opts = {
+            'format': 'best',
+            'outtmpl': 'downloaded_video.%(ext)s',
+            'noplaylist': True,
+            'quiet': True
+        }
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(url, download=True)
-            video_filename = ydl.prepare_filename(info_dict)
-            video_filename = video_filename.replace('.webm', '.mp4')  # Ensure output is mp4
-            
-            # Return the downloaded video as an attachment
-            return send_file(video_filename, as_attachment=True, attachment_filename='video.mp4')
+            result = ydl.extract_info(video_url)
+            video_filename = ydl.prepare_filename(result)
+
+        # Stream the file back to the client
+        with open(video_filename, 'rb') as video_file:
+            video_data = BytesIO(video_file.read())
+
+        os.remove(video_filename)  # Clean up the file after streaming
+
+        # Send the video file to the client
+        return send_file(
+            video_data,
+            as_attachment=True,
+            download_name='tiktok_video.mp4',
+            mimetype='video/mp4'
+        )
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))  # Default port or from environment
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=5000)
