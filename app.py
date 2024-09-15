@@ -1,48 +1,60 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, send_file, jsonify
+from flask_cors import CORS
 import yt_dlp
 import os
-from io import BytesIO
+import subprocess
 
 app = Flask(__name__)
+CORS(app)
 
-# Define the download route
-@app.route('/download', methods=['POST'])
-def download_video():
+def download_video(url, format):
+    options = {
+        'format': 'bestvideo+bestaudio/best',  # Adjust format settings as needed
+        'outtmpl': 'temp_video.%(ext)s',
+    }
+    with yt_dlp.YoutubeDL(options) as ydl:
+        info = ydl.extract_info(url, download=True)
+        return 'temp_video.' + info.get('ext', 'mp4')
+
+def convert_to_mp4(input_file):
+    output_file = 'converted_video.mp4'
+    command = ['ffmpeg', '-i', input_file, output_file]
     try:
-        data = request.get_json()
-        video_url = data.get('url')
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as e:
+        raise Exception("Error during video conversion") from e
+    return output_file
+
+@app.route('/download', methods=['POST'])
+def download():
+    url = request.form.get('url')
+    format = request.form.get('format', 'mp4')
+    
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
+    
+    try:
+        video_file = download_video(url, format)
         
-        if not video_url:
-            return jsonify({'error': 'No URL provided'}), 400
-
-        # Options for yt-dlp to download TikTok video
-        ydl_opts = {
-            'format': 'best',
-            'outtmpl': 'downloaded_video.%(ext)s',
-            'noplaylist': True,
-            'quiet': True
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(video_url)
-            video_filename = ydl.prepare_filename(result)
-
-        # Stream the file back to the client
-        with open(video_filename, 'rb') as video_file:
-            video_data = BytesIO(video_file.read())
-
-        os.remove(video_filename)  # Clean up the file after streaming
-
-        # Send the video file to the client
-        return send_file(
-            video_data,
-            as_attachment=True,
-            download_name='tiktok_video.mp4',
-            mimetype='video/mp4'
-        )
-
+        if format != 'mp4':
+            video_file = convert_to_mp4(video_file)
+        
+        # Determine the correct mimetype
+        mime_type = 'video/mp4' if format == 'mp4' else 'audio/mpeg'
+        
+        # Ensure file is available and correct
+        if not os.path.exists(video_file):
+            return jsonify({'error': 'File not found'}), 500
+        
+        response = send_file(video_file, as_attachment=True, download_name='video.' + format, mimetype=mime_type)
+        
+        # Cleanup the temporary file
+        os.remove(video_file)
+        
+        return response
+    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(port=5000, debug=True)
