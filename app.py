@@ -1,42 +1,31 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, send_file
 import yt_dlp
-from flask_cors import CORS
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all domains
+CORS(app)
 
 @app.route('/download', methods=['POST'])
 def download_video():
-    try:
-        data = request.get_json()
-        url = data.get('url')
-        
-        if not url:
-            return jsonify({"error": "URL is required"}), 400
-        
-        # Define the options for yt-dlp
-        ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',  # Download best video and audio
-            'outtmpl': 'downloads/video.mp4',     # Save as video.mp4 in the downloads folder
-            'quiet': True,
-            'noplaylist': True,
-            'merge_output_format': 'mp4'
-        }
+    data = request.json
+    url = data.get('url')
 
-        # Ensure the downloads directory exists
-        if not os.path.exists('downloads'):
-            os.makedirs('downloads')
+    if not url:
+        return {"error": "URL is required"}, 400
 
-        # Download the video
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+    ydl_opts = {
+        'format': 'bestvideo+bestaudio/best',
+        'outtmpl': 'video.%(ext)s',
+        'noplaylist': True,
+    }
 
-        # Send the file back to the client
-        return send_file('downloads/video.mp4', as_attachment=True)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=True)
     
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    video_file = 'video.mp4'
+    return send_file(video_file, as_attachment=True, attachment_filename='video.mp4')
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=10000)
+    port = int(os.environ.get('PORT', 8080))
+    app.run(debug=True, host='0.0.0.0', port=port)
