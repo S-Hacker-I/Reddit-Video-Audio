@@ -1,59 +1,54 @@
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
+from flask import Flask, request, send_file, jsonify
 import yt_dlp
-import logging
 import os
+import logging
 
 app = Flask(__name__)
-CORS(app)
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# Directory to temporarily store video files
+VIDEO_DIR = 'videos'
+if not os.path.exists(VIDEO_DIR):
+    os.makedirs(VIDEO_DIR)
 
-@app.before_request
-def log_request_info():
-    logging.debug(f"Request URL: {request.url}")
-    logging.debug(f"Request Method: {request.method}")
-    logging.debug(f"Request Headers: {request.headers}")
-    logging.debug(f"Request Body: {request.get_data()}")
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 
 @app.route('/download', methods=['POST'])
 def download_video():
-    try:
-        data = request.json
-        video_url = data.get('url')
-        
-        if not video_url:
-            logging.error("No URL provided")
-            return jsonify({'error': 'No URL provided'}), 400
+    logging.info('Received request for /download')
+    url = request.json.get('url')
+    if not url:
+        return jsonify({'error': 'No URL provided'}), 400
 
-        logging.info(f"Downloading video from URL: {video_url}")
+    logging.info(f"Attempting to download video from URL: {url}")
 
-        # Set up yt-dlp options for Reddit videos
-        ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',
-            'outtmpl': 'downloads/%(title)s.%(ext)s',
-            'quiet': False,
-        }
+    # Define download options for Reddit
+    ydl_opts = {
+        'format': 'bestvideo+bestaudio/best',
+        'outtmpl': os.path.join(VIDEO_DIR, 'reddit_video.%(ext)s'),
+        'noplaylist': True,
+        'quiet': True,
+        'merge_output_format': 'mp4',
+        'postprocessors': [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }],
+    }
 
-        # Create a directory for downloads if it doesn't exist
-        if not os.path.exists('downloads'):
-            os.makedirs('downloads')
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(video_url, download=True)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            info_dict = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info_dict)
+            logging.info(f"Downloaded video saved to: {filename}")
+        except Exception as e:
+            logging.error(f"Error downloading video: {str(e)}")
+            return jsonify({'error': str(e)}), 500
 
-        logging.info(f"Video downloaded successfully: {filename}")
-
-        return send_file(filename, as_attachment=True)
-
-    except yt_dlp.utils.DownloadError as e:
-        logging.error(f"Download error: {e}")
+    filename = os.path.join(VIDEO_DIR, 'reddit_video.mp4')
+    if not os.path.isfile(filename):
         return jsonify({'error': 'Failed to download video'}), 500
-    except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        return jsonify({'error': 'An unexpected error occurred'}), 500
+
+    return send_file(filename, as_attachment=True)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
