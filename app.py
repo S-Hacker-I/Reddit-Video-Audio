@@ -1,39 +1,38 @@
 from flask import Flask, request, send_file, jsonify
-from flask_cors import CORS
 import yt_dlp
 import os
+import tempfile
 
 app = Flask(__name__)
 
-# Enable CORS for all origins
-CORS(app)
-
-# Directory to temporarily store video files
-VIDEO_DIR = 'videos'
-if not os.path.exists(VIDEO_DIR):
-    os.makedirs(VIDEO_DIR)
-
 @app.route('/download', methods=['POST'])
 def download_video():
-    url = request.json.get('url')
+    data = request.get_json()
+    url = data.get('url')
+    
     if not url:
-        return jsonify({'error': 'No URL provided'}), 400
+        return jsonify({'error': 'URL is required'}), 400
+    
+    try:
+        # Create a temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Define output file path
+            output_path = os.path.join(temp_dir, 'video.mp4')
+            
+            # Download video
+            ydl_opts = {
+                'format': 'bestvideo+bestaudio/best',
+                'outtmpl': output_path,
+                'noplaylist': True
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            
+            # Send the video file as response
+            return send_file(output_path, as_attachment=True, download_name='video.mp4', mimetype='video/mp4')
 
-    # Define download options
-    ydl_opts = {
-        'format': 'bestaudio/best',  # Download best audio and video
-        'outtmpl': os.path.join(VIDEO_DIR, 'video.mp4'),
-        'noplaylist': True,
-        'quiet': True
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            ydl.download([url])
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    return send_file(os.path.join(VIDEO_DIR, 'video.mp4'), as_attachment=True)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
