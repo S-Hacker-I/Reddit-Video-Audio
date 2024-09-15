@@ -22,7 +22,7 @@ def download_video():
 
     logging.info(f"Attempting to download video from URL: {url}")
 
-    # Define download options for Reddit
+    # Define download options
     ydl_opts = {
         'format': 'bestvideo+bestaudio/best',
         'outtmpl': os.path.join(VIDEO_DIR, 'reddit_video.%(ext)s'),
